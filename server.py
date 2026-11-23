@@ -77,6 +77,7 @@ class Engine:
         self.ready = os.path.exists(DB_PATH)
         if not self.ready:
             self.vocab, self.vocab_sorted, self.brands, self.count, self.schema = set(), [], {}, 0, 0
+            self.featured_ids = []
             return
         c = self.conn()
         from collections import Counter
@@ -90,6 +91,8 @@ class Engine:
         for r in c.execute("select distinct brand from products where brand<>''"):
             self.brands[norm(r['brand'])] = r['brand']
         self.count = c.execute('select count(*) from products').fetchone()[0]
+        self.featured_ids = [r['id'] for r in c.execute(
+            "select id from products where image<>'' and sold>0 order by sold desc limit 60")]
         try:
             self.schema = int(c.execute("select value from meta where key='schema'").fetchone()[0])
         except Exception:
@@ -247,14 +250,36 @@ class Engine:
         ranked.sort(reverse=True)
         out = []
         for _, pid in ranked[:limit]:
-            r = rows[pid]
-            msrp, ours = money(r)
-            out.append({
-                'id': pid, 'name': r['name'], 'sku': r['sku'], 'brand': r['brand'], 'price': msrp,
-                'sale_price': ours if (ours and msrp and ours < msrp) else None, 'url': r['url'], 'image': r['image'], 'in_stock': (r['stock'] or 0) > 0,
-                'match': why.get(pid, 'keyword'), 'categories': (r['categories'] or '').split(' > ')[:2],
-            })
+            out.append(self.shape(rows[pid], why.get(pid, 'keyword')))
         return {'results': out, 'interpretation': info}
+
+    def shape(self, r, match='keyword'):
+        msrp, ours = money(r)
+        return {'id': r['id'], 'name': r['name'], 'sku': r['sku'], 'brand': r['brand'], 'price': msrp,
+                'sale_price': ours if (ours and msrp and ours < msrp) else None, 'url': r['url'], 'image': r['image'],
+                'in_stock': (r['stock'] or 0) > 0, 'match': match, 'categories': (r['categories'] or '').split(' > ')[:2]}
+
+    def recommended(self, limit=12):
+        if not self.ready or not self.featured_ids:
+            return []
+        ids = self.featured_ids[:60]
+        c = self.conn()
+        marks = ','.join('?' * len(ids))
+        rows = {r['id']: r for r in c.execute(f'select * from products where id in ({marks})', ids)}
+        c.close()
+        out, seen_brand = [], {}
+        for i in ids:            # best sellers, but no more than 3 of one brand so the row has variety
+            r = rows.get(i)
+            if not r or seen_brand.get(r['brand'], 0) >= 3:
+                continue
+            nm = (r['name'] or '').strip()
+            if len(nm) < 15 or re.match(r'(?i)^(item|test|sample)\b', nm) or not (money(r)[1] or 0) > 0:
+                continue         # skip placeholder / test products
+            seen_brand[r['brand']] = seen_brand.get(r['brand'], 0) + 1
+            out.append(self.shape(r))
+            if len(out) >= limit:
+                break
+        return out
 
     def product_facts(self, ids):
         c = self.conn()
@@ -335,6 +360,34 @@ def ask_allowed(ip):
             return False, 'You have asked a lot of questions this hour. Please try again later.'
         hits.append(time.time()); _ask_ip[ip] = hits; _ask_day['n'] += 1
         return True, ''
+
+SEED_POPULAR = ['opw', 'cim-tek filter', 'nozzle', 'hose', 'breakaway', 'veeder-root tls', 'fuel filter',
+                'piusi pump', 'swivel', 'tank gauge']
+
+
+def popular_searches(limit=10):
+    from collections import Counter
+    counts = Counter()
+    try:
+        with open(os.path.join(DATA_DIR, 'hits.log'), encoding='utf-8') as f:
+            for line in f.readlines()[-20000:]:
+                try:
+                    d = json.loads(line)
+                except ValueError:
+                    continue
+                q = (d.get('q') or '').strip().lower()
+                if len(q) >= 3 and d.get('n', 0) > 0 and '@' not in q:
+                    counts[q] += 1
+    except OSError:
+        pass
+    out = [q for q, n in counts.most_common(limit * 2) if n >= 3][:limit]   # only terms several people searched
+    for q in SEED_POPULAR:
+        if len(out) >= limit:
+            break
+        if q not in out:
+            out.append(q)
+    return out
+
 
 # ------------------------------------------------------------------ AI layer (Claude)
 SYSTEM_BASE = ('You work for Global Fueling Systems (GFS), an online store for fuel dispensing and fuel management equipment '
@@ -454,17 +507,26 @@ class Handler(BaseHTTPRequestHandler):
         if u.path == '/search':
             q = qs.get('q', [''])[0]
             t0 = time.time()
-            res = ENGINE.search(q, limit=int(qs.get('limit', ['12'])[0]))
+            res = ENGINE.search(q, limit=min(int(qs.get('limit', ['12'])[0]), 60))
             res['ms'] = round((time.time() - t0) * 1000)
             res['ai'] = bool(API_KEY)
-            try:
-                with open(os.path.join(DATA_DIR, 'queries.log'), 'a', encoding='utf-8') as f:
-                    f.write(json.dumps({'t': int(time.time()), 'q': q, 'n': len(res['results'])}) + '\n')
-            except OSError:
-                pass
             if not ENGINE.ready:
                 res['error'] = 'index_building'
             return self._send(200, res)
+        if u.path == '/recommended':
+            return self._send(200, {'results': ENGINE.recommended(int(qs.get('limit', ['12'])[0]))})
+        if u.path == '/popular':
+            return self._send(200, {'queries': popular_searches()})
+        if u.path == '/hit':     # the widget calls this when someone commits a search (Enter / click), not on every keystroke
+            q = qs.get('q', [''])[0].strip()[:120]
+            if q:
+                n = len(ENGINE.search(q, limit=1)['results']) if ENGINE.ready else 0
+                try:
+                    with open(os.path.join(DATA_DIR, 'hits.log'), 'a', encoding='utf-8') as f:
+                        f.write(json.dumps({'t': int(time.time()), 'q': q, 'n': n}) + '\n')
+                except OSError:
+                    pass
+            return self._send(204, b'', 'text/plain')
         if u.path == '/health':
             return self._send(200, {'ok': True, 'products': ENGINE.count, 'ai': bool(API_KEY), 'model': MODEL if API_KEY else None,
                                     'index': {'ready': ENGINE.ready, **INDEX_STATE}})
