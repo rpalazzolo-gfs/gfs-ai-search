@@ -76,7 +76,7 @@ class Engine:
     def reload(self):
         self.ready = os.path.exists(DB_PATH)
         if not self.ready:
-            self.vocab, self.vocab_sorted, self.brands, self.count = set(), [], {}, 0
+            self.vocab, self.vocab_sorted, self.brands, self.count, self.schema = set(), [], {}, 0, 0
             return
         c = self.conn()
         from collections import Counter
@@ -90,6 +90,10 @@ class Engine:
         for r in c.execute("select distinct brand from products where brand<>''"):
             self.brands[norm(r['brand'])] = r['brand']
         self.count = c.execute('select count(*) from products').fetchone()[0]
+        try:
+            self.schema = int(c.execute("select value from meta where key='schema'").fetchone()[0])
+        except Exception:
+            self.schema = 1      # index built before prices were added
         c.close()
 
     # ---- typo tolerance
@@ -244,9 +248,10 @@ class Engine:
         out = []
         for _, pid in ranked[:limit]:
             r = rows[pid]
+            msrp, ours = money(r)
             out.append({
-                'id': pid, 'name': r['name'], 'sku': r['sku'], 'brand': r['brand'], 'price': r['price'],
-                'sale_price': r['sale_price'], 'url': r['url'], 'image': r['image'], 'in_stock': (r['stock'] or 0) > 0,
+                'id': pid, 'name': r['name'], 'sku': r['sku'], 'brand': r['brand'], 'price': msrp,
+                'sale_price': ours if (ours and msrp and ours < msrp) else None, 'url': r['url'], 'image': r['image'], 'in_stock': (r['stock'] or 0) > 0,
                 'match': why.get(pid, 'keyword'), 'categories': (r['categories'] or '').split(' > ')[:2],
             })
         return {'results': out, 'interpretation': info}
@@ -257,6 +262,14 @@ class Engine:
         rows = {r['id']: r for r in c.execute(f'select * from products where id in ({marks})', ids)}
         c.close()
         return [rows[i] for i in ids if i in rows]
+
+
+def money(r):
+    """(msrp, our_price): what the storefront shows. Older indexes fall back to the base/sale price."""
+    keys = r.keys()
+    msrp = r['msrp'] if 'msrp' in keys and r['msrp'] is not None else r['price']
+    ours = r['our_price'] if 'our_price' in keys and r['our_price'] is not None else (r['sale_price'] or r['price'])
+    return msrp, ours
 
 
 ENGINE = Engine()
@@ -291,8 +304,8 @@ def index_scheduler():
     if os.path.exists(DB_PATH):
         age = time.time() - os.path.getmtime(DB_PATH)
         INDEX_STATE['last_built'] = int(os.path.getmtime(DB_PATH))
-        if age > 26 * 3600:
-            rebuild_index()
+        if age > 26 * 3600 or ENGINE.schema < sync.SCHEMA:
+            rebuild_index()      # old index keeps serving until the new one is swapped in
     else:
         rebuild_index()
     last_day = time.strftime('%Y-%m-%d', time.gmtime())
@@ -380,7 +393,8 @@ def ask(q):
     facts = ENGINE.product_facts([r['id'] for r in res['results']])
     lines = []
     for r in facts:
-        price = f"${r['sale_price'] or r['price']:.2f}" if (r['sale_price'] or r['price']) else 'call'
+        _, ours = money(r)
+        price = f"${ours:.2f}" if ours else 'call'
         lines.append(f"[{r['id']}] {r['name']} | SKU {r['sku']} | brand {r['brand']} | {price} | "
                      f"{'in stock' if (r['stock'] or 0) > 0 else 'drop-shipped / ships from manufacturer'} | specs: {(r['specs'] or '')[:260]} | {(r['descr'] or '')[:260]}")
     try:

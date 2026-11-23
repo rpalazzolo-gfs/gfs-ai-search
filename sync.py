@@ -53,6 +53,26 @@ def strip_html(s):
 def norm(s):
     return re.sub(r'[^a-z0-9]', '', (s or '').lower())
 
+SCHEMA = 2   # bump when the index layout changes: the server rebuilds an older index automatically
+
+
+def our_price(p):
+    """What the storefront shows as "Our Price": sale price if set, else base price, minus the quantity-1 bulk rule."""
+    base = float(p.get('price') or 0)
+    eff = float(p.get('sale_price') or 0) or base
+    rules = sorted(p.get('bulk_pricing_rules') or [], key=lambda b: b.get('quantity_min') or 0)
+    r1 = next((b for b in rules if (b.get('quantity_min') or 0) == 1), None)
+    if r1:
+        amt = float(r1.get('amount') or 0)
+        if r1.get('type') == 'percent':
+            eff = eff * (100 - amt) / 100
+        elif r1.get('type') == 'fixed':
+            eff = max(eff - amt, 0)
+        elif r1.get('type') == 'price':
+            eff = amt
+    return round(eff, 2)
+
+
 XREF_FIELDS = {'fits these products', 'replacement parts', 'replacement parts tab', 'accessories tab',
                'alternative', 'newer model', 'this-replaces', 'table products tab', 'core_product'}
 
@@ -68,12 +88,13 @@ def main():
     db.executescript('''
     CREATE TABLE products(id INTEGER PRIMARY KEY, name TEXT, sku TEXT, mpn TEXT, upc TEXT, brand TEXT, categories TEXT,
         url TEXT, price REAL, sale_price REAL, stock INTEGER, tracked TEXT, image TEXT, descr TEXT, specs TEXT, xref TEXT,
-        sold INTEGER, availability TEXT);
+        sold INTEGER, availability TEXT, msrp REAL, our_price REAL);
+    CREATE TABLE meta(key TEXT PRIMARY KEY, value TEXT);
     CREATE TABLE pn(norm TEXT, product_id INTEGER, kind TEXT, raw TEXT);
     CREATE INDEX pn_norm ON pn(norm);
     ''')
     n = 0
-    for p in pages('/catalog/products', include='custom_fields,variants,primary_image', is_visible='true'):
+    for p in pages('/catalog/products', include='custom_fields,variants,primary_image,bulk_pricing_rules', is_visible='true'):
         cf = p.get('custom_fields') or []
         specs = '; '.join(f"{c['name']}: {c['value']}" for c in cf
                           if not c['name'].startswith('__') and not c['name'].startswith('**'))
@@ -82,10 +103,11 @@ def main():
         img = (p.get('primary_image') or {}).get('url_thumbnail') or ''
         brand = brands.get(p.get('brand_id'), '')
         url = (p.get('custom_url') or {}).get('url') or ''
-        db.execute('INSERT INTO products VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (
+        db.execute('INSERT INTO products VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)', (
             p['id'], p['name'], p.get('sku'), p.get('mpn'), p.get('upc'), brand, catnames, url,
             p.get('price'), p.get('sale_price') or None, p.get('inventory_level'), p.get('inventory_tracking'),
-            img, strip_html(p.get('description'))[:4000], specs, xref, p.get('total_sold'), p.get('availability')))
+            img, strip_html(p.get('description'))[:4000], specs, xref, p.get('total_sold'), p.get('availability'),
+            p.get('price'), our_price(p)))
         seen = set()
         def add(raw, kind):
             for part in re.split(r'[,\s;|]+', str(raw or '')):
@@ -109,6 +131,7 @@ def main():
     CREATE VIRTUAL TABLE vocab USING fts5vocab(fts, 'row');
     ''')
     db.commit()
+    db.execute("INSERT INTO meta VALUES ('schema', ?)", (str(SCHEMA),)); db.commit()
     print('indexed products:', n, '| part-number keys:', db.execute('select count(*) from pn').fetchone()[0], flush=True)
     db.close()
     os.replace(tmp, DB)   # atomic swap: readers never see a half-built index

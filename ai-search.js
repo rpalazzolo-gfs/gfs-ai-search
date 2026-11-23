@@ -7,29 +7,32 @@
   'use strict';
 
   var CSS = '\
-.gfsai-panel{position:absolute;z-index:99999;left:0;right:0;top:100%;margin-top:6px;background:#fff;border:1px solid #e0e0e0;border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.16);max-height:75vh;overflow:auto;font-family:inherit;font-size:14px;color:#1a1a1a;text-align:left;display:none}\
+.gfsai-panel{position:absolute;z-index:99999;left:0;width:100%;max-width:560px;top:100%;margin-top:4px;background:#efefef;border:0;border-radius:0;box-shadow:0 8px 24px rgba(0,0,0,.22);max-height:420px;overflow-y:auto;font-family:inherit;font-size:12px;line-height:20px;color:#323232;text-align:left;display:none}\
 .gfsai-panel.is-open{display:block}\
-.gfsai-sec{padding:8px 0;border-bottom:1px solid #f0f0f0}.gfsai-sec:last-child{border-bottom:0}\
-.gfsai-h{padding:4px 14px 6px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6b6b6b}\
-.gfsai-item{display:flex;gap:12px;align-items:center;padding:8px 14px;text-decoration:none;color:inherit;cursor:pointer}\
-.gfsai-item:hover,.gfsai-item.is-active{background:#f2fbf7}\
-.gfsai-img{width:46px;height:46px;flex:0 0 46px;border:1px solid #efefef;border-radius:6px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}\
-.gfsai-img img{max-width:100%;max-height:100%}\
-.gfsai-main{flex:1;min-width:0}\
-.gfsai-name{font-weight:600;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}\
-.gfsai-name mark{background:#d9f5e8;color:inherit;border-radius:2px}\
-.gfsai-meta{font-size:12px;color:#6b6b6b;margin-top:2px}\
-.gfsai-side{text-align:right;flex:0 0 auto;font-size:13px;font-weight:700;color:#10ab71}\
-.gfsai-side s{color:#8a8a8a;font-weight:400;margin-right:4px}\
-.gfsai-badge{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:20px;padding:2px 8px;margin-right:6px;vertical-align:1px}\
-.gfsai-b-pn{background:#10ab71;color:#fff}.gfsai-b-part{background:#e4f6ee;color:#0d7a52}.gfsai-b-xref{background:#fff2d9;color:#8a5a00}\
-.gfsai-stock{font-size:11px;font-weight:600;color:#0d7a52;display:block;margin-top:2px}.gfsai-ship{font-size:11px;color:#8a8a8a;display:block;margin-top:2px;font-weight:400}\
-.gfsai-note{padding:6px 14px;font-size:12px;color:#6b6b6b}.gfsai-note b{color:#1a1a1a}\
-.gfsai-ask{display:flex;gap:10px;align-items:center;padding:10px 14px;cursor:pointer;background:linear-gradient(90deg,#f2fbf7,#fff);font-weight:600}\
-.gfsai-ask:hover,.gfsai-ask.is-active{background:#e4f6ee}.gfsai-spark{color:#10ab71;font-size:16px}\
-.gfsai-ans{padding:12px 14px;line-height:1.5}.gfsai-ans p{margin:0 0 8px}.gfsai-load{color:#6b6b6b;font-style:italic;padding:12px 14px}\
-.gfsai-foot{padding:10px 14px;text-align:center}.gfsai-foot a{color:#10ab71;font-weight:700;text-decoration:none}\
-.gfsai-empty{padding:16px 14px;color:#6b6b6b}';
+.gfsai-sec{padding:0;border-bottom:0}\
+.gfsai-h{padding:10px 15px 4px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#a0a0a0}\
+.gfsai-item{display:block;padding:10px 15px;border-bottom:1px solid #eaeaea;text-decoration:none;color:inherit;cursor:pointer}\
+.gfsai-card{display:flex;align-items:stretch;background:#efefef;border:3px solid #ddd;padding:10px}\
+.gfsai-item:hover .gfsai-card,.gfsai-item.is-active .gfsai-card{border-color:#bdbdbd;background:#f6f6f6}\
+.gfsai-img{width:70px;flex:0 0 70px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;min-height:70px}\
+.gfsai-img img{max-width:100%;max-height:90px;display:block}\
+.gfsai-main{flex:1;min-width:0;padding-left:15px}\
+.gfsai-brand{font-size:12px;color:#a0a0a0;margin:0}\
+.gfsai-name{font-size:12px;font-weight:400;line-height:20px;color:#323232;margin:0}\
+.gfsai-name mark{background:#fff2a8;color:inherit}\
+.gfsai-meta{font-size:11px;color:#a0a0a0;margin-top:2px}\
+.gfsai-price{margin-top:4px;font-size:13px;font-weight:500;color:#e95144}\
+.gfsai-price s{color:#a0a0a0;margin-right:6px;font-weight:500}\
+.gfsai-stock{display:inline-block;margin-left:8px;font-size:11px;font-weight:600;color:#10ab71}\
+.gfsai-ship{display:inline-block;margin-left:8px;font-size:11px;font-weight:400;color:#a0a0a0}\
+.gfsai-badge{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;border-radius:2px;padding:0 6px;margin-right:6px;vertical-align:1px;line-height:16px}\
+.gfsai-b-pn{background:#10ab71;color:#fff}.gfsai-b-part{background:#d9efe6;color:#0d7a52}.gfsai-b-xref{background:#fbe6a8;color:#6b4a00}\
+.gfsai-note{padding:8px 15px;font-size:12px;color:#646464}.gfsai-note b{color:#323232}\
+.gfsai-ask{display:flex;gap:10px;align-items:center;padding:12px 15px;cursor:pointer;background:#fff;border-bottom:1px solid #eaeaea;font-weight:600;font-size:13px}\
+.gfsai-ask:hover,.gfsai-ask.is-active{background:#f3fbf7}.gfsai-spark{color:#10ab71;font-size:16px}\
+.gfsai-ans{padding:12px 15px;line-height:1.5;font-size:13px;background:#fff}.gfsai-ans p{margin:0 0 8px}.gfsai-load{color:#646464;font-style:italic;padding:14px 15px}\
+.gfsai-foot{padding:12px 15px;text-align:center;background:#fff}.gfsai-foot a{color:#323232;font-weight:600;text-decoration:underline}\
+.gfsai-empty{padding:16px 15px;color:#646464}';
 
   function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -70,11 +73,13 @@
       var badges = badge === 'part_number' ? '<span class="gfsai-badge gfsai-b-pn">Part # match</span>'
         : badge === 'part_number_partial' ? '<span class="gfsai-badge gfsai-b-part">Similar part #</span>'
         : badge === 'cross_reference' ? '<span class="gfsai-badge gfsai-b-xref">Cross-reference</span>' : '';
-      a.innerHTML = '<div class="gfsai-img">' + (p.image ? '<img src="' + esc(p.image) + '" alt="" loading="lazy">' : '') + '</div>' +
-        '<div class="gfsai-main"><div class="gfsai-name">' + highlight(p.name, q) + '</div>' +
-        '<div class="gfsai-meta">' + badges + esc(p.brand || '') + (p.sku ? ' &middot; ' + esc(p.sku) : '') + '</div></div>' +
-        '<div class="gfsai-side">' + (p.sale_price && p.sale_price < p.price ? '<s>' + money(p.price) + '</s>' : '') + money(p.sale_price || p.price) +
-        (p.in_stock ? '<span class="gfsai-stock">In stock</span>' : '<span class="gfsai-ship">Ships from manufacturer</span>') + '</div>';
+      var ours = p.sale_price || p.price;
+      var priceHtml = (p.sale_price && p.price && p.sale_price < p.price ? '<s>' + money(p.price) + '</s>' : '') + money(ours);
+      a.innerHTML = '<div class="gfsai-card"><div class="gfsai-img">' + (p.image ? '<img src="' + esc(p.image) + '" alt="" loading="lazy">' : '') + '</div>' +
+        '<div class="gfsai-main">' + (p.brand ? '<div class="gfsai-brand">' + esc(p.brand) + '</div>' : '') +
+        '<div class="gfsai-name">' + highlight(p.name, q) + '</div>' +
+        '<div class="gfsai-meta">' + badges + (p.sku ? 'SKU ' + esc(p.sku) : '') + '</div>' +
+        '<div class="gfsai-price">' + priceHtml + (p.in_stock ? '<span class="gfsai-stock">In stock</span>' : '<span class="gfsai-ship">Ships from manufacturer</span>') + '</div></div></div>';
       return a;
     }
 
