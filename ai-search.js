@@ -106,7 +106,7 @@
     wrap.appendChild(bar); wrap.appendChild(recentEl); wrap.appendChild(cols); root.appendChild(wrap);
     document.body.appendChild(root);
 
-    var state = { q: '', seq: 0, timer: null, results: [], info: {}, brand: null, home: null, popular: null };
+    var state = { q: '', seq: 0, timer: null, results: [], info: {}, brand: null, home: null, popular: null, ai: false };
     ov = { sources: [] };
 
     function lock(on) { document.documentElement.style.overflow = on ? 'hidden' : ''; }
@@ -218,7 +218,7 @@
       var shown = state.brand ? res.filter(function (p) { return p.brand === state.brand; }) : res;
       var ask = el('div', 'gfsai-ask', '<span class="sp">&#10024;</span><span>Ask AI: &ldquo;' + esc(q) + '&rdquo;</span>');
       ask.onclick = function () { runAsk(q); };
-      if (isQuestion(q)) right.appendChild(ask);
+      if (state.ai && isQuestion(q)) right.appendChild(ask);
       if (info.corrections && info.corrections.length) {
         right.appendChild(el('p', 'gfsai-note', 'Showing results for <b>' + esc(info.corrections.map(function (c) { return c[1]; }).join(', ')) + '</b> (you typed ' + esc(info.corrections.map(function (c) { return c[0]; }).join(', ')) + ')'));
       }
@@ -230,7 +230,7 @@
         shown.forEach(function (p) { grid.appendChild(productCard(p, p.match)); });
         right.appendChild(grid);
       }
-      if (!isQuestion(q)) { var wrapAsk = el('div'); wrapAsk.style.marginTop = '16px'; wrapAsk.appendChild(ask); right.appendChild(wrapAsk); }
+      if (state.ai && !isQuestion(q)) { var wrapAsk = el('div'); wrapAsk.style.marginTop = '16px'; wrapAsk.appendChild(ask); right.appendChild(wrapAsk); }
       var more = el('div', 'gfsai-more', '<a href="' + esc(searchPage + encodeURIComponent(q)) + '">See all results for &ldquo;' + esc(q) + '&rdquo;</a>');
       more.querySelector('a').addEventListener('click', function () { addRecent(q); hit(q); });
       right.appendChild(more);
@@ -267,7 +267,7 @@
         .then(function (d) {
           if (my !== state.seq || box.value.trim() !== q) return;
           if (d.error === 'index_building') { right.innerHTML = '<div class="gfsai-empty">Search is warming up &mdash; try again in a minute.</div>'; return; }
-          state.q = q; state.results = d.results || []; state.info = d.interpretation || {}; state.brand = null;
+          state.q = q; state.results = d.results || []; state.info = d.interpretation || {}; state.brand = null; state.ai = !!d.ai;
           renderResults();
         })
         .catch(function () { right.innerHTML = '<div class="gfsai-empty">Could not reach the search service.</div>'; });

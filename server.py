@@ -441,7 +441,7 @@ def ask(q):
     res = ENGINE.search(rewritten, limit=10)
     data = {'query': q, 'rewritten': rewritten, 'results': res['results'], 'interpretation': res['interpretation'], 'answer': None, 'products': []}
     if not API_KEY:
-        data['note'] = 'AI answers are switched off: add ANTHROPIC_API_KEY to the .env file next to server.py and restart.'
+        data['note'] = 'AI answers are switched off: add ANTHROPIC_API_KEY in the service environment settings (Render: Environment tab) or in the local .env file, then restart.'
         return data
     facts = ENGINE.product_facts([r['id'] for r in res['results']])
     lines = []
