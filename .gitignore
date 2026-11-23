@@ -1,0 +1,5 @@
+.env
+*.log
+catalog.db
+catalog.db.building
+__pycache__/

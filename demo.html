@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GFS AI Search Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Karla:wght@400;600;700&family=Montserrat:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --green:#10ab71; --ink:#1a1a1a; --mute:#6b6b6b; --line:#e5e5e5; --bg:#f6f7f7; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:'Karla',Arial,sans-serif; color:var(--ink); background:var(--bg); }
+  header { background:#323232; padding:14px 24px; display:flex; align-items:center; gap:24px; }
+  header .logo { color:#fff; font-family:'Montserrat',sans-serif; font-weight:700; letter-spacing:.04em; font-size:15px; white-space:nowrap; }
+  header .logo span { color:var(--green); }
+  .bar { flex:1; position:relative; max-width:900px; }
+  .bar input { width:100%; height:44px; border-radius:6px; border:0; padding:0 16px; font:inherit; font-size:15px; }
+  main { max-width:900px; margin:0 auto; padding:36px 24px 80px; }
+  h1 { font-family:'Montserrat',sans-serif; font-size:22px; margin:0 0 6px; }
+  p.lead { color:var(--mute); margin:0 0 22px; line-height:1.5; }
+  .status { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:26px; }
+  .chip { background:#fff; border:1px solid var(--line); border-radius:20px; padding:5px 12px; font-size:13px; }
+  .chip b { color:var(--green); }
+  .try { display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:12px; }
+  .try button { text-align:left; background:#fff; border:1px solid var(--line); border-radius:10px; padding:12px 14px; cursor:pointer; font:inherit; }
+  .try button:hover { border-color:var(--green); }
+  .try small { display:block; color:var(--mute); margin-top:3px; font-size:12px; }
+  .try strong { font-size:14px; }
+  h2 { font-family:'Montserrat',sans-serif; font-size:14px; letter-spacing:.06em; text-transform:uppercase; color:var(--mute); margin:30px 0 12px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">GLOBAL <span>FUELING</span> SYSTEMS &middot; AI search prototype</div>
+  <div class="bar"><input id="q" type="search" placeholder="Search by part number, product, brand &mdash; or ask a question" autofocus></div>
+</header>
+<main>
+  <h1>Try the search</h1>
+  <p class="lead">Type in the bar above. It matches part numbers (including cross-references), fixes typos, understands brands, and can answer questions in plain English with <b>Ask AI</b>.</p>
+  <div class="status" id="status"></div>
+  <h2>Click an example</h2>
+  <div class="try" id="try"></div>
+</main>
+<script src="/ai-search.js"></script>
+<script>
+  var box = document.getElementById('q');
+  GFSAISearch.attach(box, { api: location.origin, siteBase: 'https://globalfuelingsystems.com' });
+  var examples = [
+    ['70012', 'Part number &mdash; exact match plus related parts'],
+    ['70012-300-30', 'Part number written differently'],
+    ['137100-01', 'Part number with a dash'],
+    ['veder root tls', 'Typo + brand + product line'],
+    ['cim tek 10 micron', 'Brand spelled two ways + a spec'],
+    ['gpi ez-8 pump', 'Model name'],
+    ['def nozzle', 'Plain keywords'],
+    ['what filter do i need for a 10 micron gasoline dispenser?', 'A question (uses Ask AI)'],
+    ['which nozzle works with diesel exhaust fluid?', 'A question (uses Ask AI)']
+  ];
+  var t = document.getElementById('try');
+  examples.forEach(function (e) {
+    var b = document.createElement('button'); b.innerHTML = '<strong>' + e[0] + '</strong><small>' + e[1] + '</small>';
+    b.onclick = function () { box.focus(); box.value = e[0]; box.dispatchEvent(new Event('input', { bubbles: true })); };
+    t.appendChild(b);
+  });
+  fetch('/health').then(function (r) { return r.json(); }).then(function (h) {
+    document.getElementById('status').innerHTML =
+      '<span class="chip"><b>' + h.products.toLocaleString() + '</b> products indexed</span>' +
+      '<span class="chip">AI answers: <b>' + (h.ai ? 'ON &middot; ' + h.model : 'OFF (add API key)') + '</b></span>';
+  });
+</script>
+</body>
+</html>
